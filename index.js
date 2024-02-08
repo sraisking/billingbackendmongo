@@ -164,7 +164,7 @@ app.post(
   async (req, res) => {
     console.log(req.body);
     try {
-      const expenses = JSON.parse(req.body.expenses);
+      const expenses = req.body.expenses;
       const pet = new Pet({
         ...req.body,
         expenses: expenses,
