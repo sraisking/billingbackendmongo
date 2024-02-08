@@ -12,7 +12,10 @@ const fs = require('fs');
 require('dotenv').config();
 const port = process.env.PORT || 3000;
 const mongoUri = "mongodb+srv://shah:shah@cluster0.pcdrbds.mongodb.net/pets";
-
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
 mongoose
   .connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("MongoDb Connected"))
