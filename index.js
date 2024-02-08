@@ -9,7 +9,7 @@ const Pet = require("./models/PetSchema");
 const app = express();
 const cors = require("cors"); // Add this line
 const fs = require('fs');
-
+require('dotenv').config();
 const port = process.env.PORT || 3000;
 const mongoUri = "mongodb+srv://shah:shah@cluster0.pcdrbds.mongodb.net/pets";
 
