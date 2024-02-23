@@ -141,7 +141,19 @@ app.post("/login", async (req, res) => {
 app.get("/pets", authenticateJWT, async (req, res) => {
   try {
     const pets = await Pet.find();
-    res.send(pets);
+
+    // Convert picture data to base64 for each pet
+    const petsWithBase64Images = pets.map(pet => {
+      if (pet.picture && pet.picture.data) {
+        const base64Image = pet.picture.data.toString("base64");
+        const base64String = `data:${pet.picture.contentType};base64,${base64Image}`;
+        return { ...pet.toObject(), picture: base64String };
+      } else {
+        return pet;
+      }
+    });
+
+    res.send(petsWithBase64Images);
   } catch (error) {
     res.status(500).send(error);
   }
