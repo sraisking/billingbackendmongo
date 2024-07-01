@@ -1,4 +1,5 @@
 const express = require("express");
+require("./clearUploadJob");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const multer = require("multer");
@@ -296,6 +297,21 @@ app.post("/search", authenticateJWT, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+app.delete("/pets/:id", authenticateJWT, async (req, res) => {
+  try {
+    const petId = req.params.id;
+    const deletedPet = await Pet.findByIdAndDelete(petId);
+
+    if (!deletedPet) {
+      return res.status(404).send({ message: "Pet not found" });
+    }
+
+    res.status(200).send({ message: "Pet deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Internal Server Error" });
   }
 });
 app.get("/pets/:id/download-pdf", async (req, res) => {
