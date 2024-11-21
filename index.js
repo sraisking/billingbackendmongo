@@ -1,5 +1,6 @@
 const express = require("express");
 require("./clearUploadJob");
+require("pdfkit-table");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const multer = require("multer");
@@ -314,88 +315,203 @@ app.delete("/pets/:id", authenticateJWT, async (req, res) => {
     res.status(500).send({ message: "Internal Server Error" });
   }
 });
-app.get("/pets/:id/download-pdf", async (req, res) => {
+
+const QRCode = require("qrcode");
+// app.get('/pets/:id/download-pdf', async (req, res) => {
+//   const petId = req.params.id;
+//   const uploadsDir = path.join(__dirname, 'uploads');
+//   const generatedDir = path.join(__dirname, 'generated');
+//   const filePath = path.join(generatedDir, `pet_bill_${petId}.pdf`);
+//   const qrCodePath = path.join(uploadsDir, `pet_qr_${petId}.png`);
+//   const qrCodeData = `https://example.com/pets/${petId}`;
+
+//   // Ensure the required directories exist
+//   if (!fs.existsSync(uploadsDir)) {
+//       fs.mkdirSync(uploadsDir);
+//   }
+//   if (!fs.existsSync(generatedDir)) {
+//       fs.mkdirSync(generatedDir);
+//   }
+
+//   try {
+//       const doc = new PDFDocument();
+//       const writeStream = fs.createWriteStream(filePath);
+
+//       // Pipe PDF document to the file
+//       doc.pipe(writeStream);
+
+//       // Add initial content
+//       doc.fontSize(18).text('Pet Bill', { align: 'center' }).moveDown();
+//       doc.text(`Pet ID: ${petId}`).moveDown();
+
+//       // Generate QR Code
+//       await new Promise((resolve, reject) => {
+//           QRCode.toFile(qrCodePath, qrCodeData, (err) => {
+//               if (err) {
+//                   console.error('Error generating QR code:', err);
+//                   return reject(err);
+//               }
+//               console.log('QR Code saved at:', qrCodePath);
+//               resolve();
+//           });
+//       });
+
+//       // Add QR code to the PDF
+//       doc.image(qrCodePath, { fit: [100, 100], align: 'right' }).moveDown();
+
+//       // Finalize PDF
+//       doc.end();
+
+//       // Send the file
+//       writeStream.on('finish', () => {
+//           res.setHeader('Content-Disposition', `attachment; filename="pet_bill_${petId}.pdf"`);
+//           res.setHeader('Content-Type', 'application/pdf');
+//           res.sendFile(filePath, (err) => {
+//               if (err) {
+//                   console.error('Error sending file:', err);
+//                   res.status(500).send({ message: 'Failed to send PDF document' });
+//               }
+
+//               // Clean up files
+//               fs.unlinkSync(qrCodePath);
+//               fs.unlinkSync(filePath);
+//           });
+//       });
+
+//       writeStream.on('error', (err) => {
+//           console.error('Error writing PDF file:', err);
+//           res.status(500).send({ message: 'Error writing PDF file' });
+//       });
+
+//   } catch (error) {
+//       console.error('Error generating PDF:', error);
+//       res.status(500).send({ message: 'Error generating PDF' });
+//   }
+// });
+
+app.get('/pets/:id/download-pdf', async (req, res) => {
   const petId = req.params.id;
+  const uploadsDir = path.join(__dirname, 'uploads');
+  const generatedDir = path.join(__dirname, 'generated');
+  const filePath = path.join(generatedDir, `pet_bill_${petId}.pdf`);
+  const qrCodePath = path.join(uploadsDir, `pet_qr_${petId}.png`);
+
+  // Mock data for demonstration purposes
+  const pet = await Pet.findById(petId);
+  const totalCost = pet.expenses.reduce((sum, expense) => sum + expense.cost, 0);
+
+  // Ensure directories exist
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+  if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir);
 
   try {
-    // Fetch pet details from MongoDB
-    const pet = await Pet.findById(petId);
+      const doc = new PDFDocument();
+      const writeStream = fs.createWriteStream(filePath);
 
-    if (!pet) {
-      return res.status(404).send({ message: "Pet not found" });
-    }
+      // Pipe PDF document to the file
+      doc.pipe(writeStream);
 
-    // Create a PDF document
-    const doc = new PDFDocument();
+      // Add PDF content
+      doc.fontSize(24).font("Helvetica-Bold").text("Yasmin's Care Foundation", { align: 'center' });
+      doc.fontSize(14).text("Mallikpur Railway Station", { align: 'center' });
+      doc.text("Phone: +917980100636 | Email: yasmin.hanif2417@gmail.com", { align: 'center' }).moveDown();
 
-    // Pipe the PDF content to a writable stream
-    const filePath = path.join(__dirname, "uploads", `pet_bill_${petId}.pdf`);
-    const outputStream = fs.createWriteStream(filePath);
-    doc.pipe(outputStream);
-
-    // PDF content generation
-    doc.fontSize(20).text(`Pet Bill - ${pet.name}`, { align: 'center' }).moveDown(0.5);
-    doc.fontSize(14).text(`Owner: ${pet.owner}`).moveDown(0.5);
-    doc.text(`Contact: ${pet.contact}`).moveDown(0.5);
-    doc.text(`Reason of Admission: ${pet.reasonOfAdmission}`).moveDown(0.5);
-    doc.text(`Date of Admission: ${pet.dateOfAdmission.toLocaleDateString()}`).moveDown(0.5);
-    if (pet.dateOfDischarge) {
-      doc.text(`Date of Discharge: ${pet.dateOfDischarge.toLocaleDateString()}`).moveDown(0.5);
-    }
-
-    // Add a table for expenses
-    doc.moveDown(1); // Add some space before the table
-    doc.fontSize(14).text("Expenses", { underline: true }).moveDown(0.5);
-
-    // Headers for the table
-    const headers = ["Item", "Cost"];
-    const table = {
-      headers: headers,
-      rows: [],
-    };
-
-    // Populate rows with pet expenses
-    pet.expenses.forEach((expense) => {
-      table.rows.push([expense.item, `RS${expense.cost.toFixed(2)}`]); // Formatting cost to 2 decimal places
-    });
-
-    // Calculate column widths and positioning
-    const startX = 50;
-    const startY = doc.y;
-    const padding = 10;
-    const rowHeight = 20;
-    const col1Width = 300;
-    const col2Width = 150;
-
-    // Draw table headers
+      doc.fontSize(18).text(`Pet Bill - ${pet.name}`, { align: 'center' }).moveDown();
+      doc.fontSize(12).text(`Owner: ${pet.owner}`);
+      doc.text(`Contact: ${pet.contact}`);
+      doc.text(`Reason of Admission: ${pet.reasonOfAdmission}`);
+      doc.text(`Date of Admission: ${pet.dateOfAdmission.toLocaleDateString()}`);
+      if (pet.dateOfDischarge) {
+          doc.text(`Date of Discharge: ${pet.dateOfDischarge.toLocaleDateString()}`);
+      }
+      doc.text(`Total Cost: ₹${totalCost}`).moveDown();
+    // Table Headers
+    const startX = 50; // Table X coordinate
+    const tableWidth = 500; // Total table width
+    const col1Width = 350; // Width of Item column
+    const col2Width = tableWidth - col1Width; // Width of Cost column
+    const rowHeight = 25; // Height of each row
+    let currentY = doc.y + rowHeight;
+    // let currentY = doc.y + rowHeight;
     doc.font("Helvetica-Bold").fontSize(12);
-    doc.text(headers[0], startX, startY, { width: col1Width, align: "left" });
-    doc.text(headers[1], startX + col1Width + padding, startY, { width: col2Width, align: "left" });
+    
+    // Header row
+    doc.rect(startX, doc.y, col1Width, rowHeight).stroke(); // Item column
+    doc.rect(startX + col1Width, doc.y, col2Width, rowHeight).stroke(); // Cost column
+    
+    // "Item" header text
+    doc.text("Item", startX + 10, doc.y + 7, { width: col1Width - 20, align: "left" }); 
+    
+    // "Cost" header text (adjusted to fit within the cell)
+    doc.text("Cost", startX + col1Width + 10, doc.y-10, { width: col2Width - 20, align: "center" });
+    
+    // Expense rows
+    // currentY += rowHeight;
 
-    // Draw table rows
     doc.font("Helvetica").fontSize(10);
-    table.rows.forEach((row, index) => {
-      const currentY = startY + (index + 1) * rowHeight;
-      doc.text(row[0], startX, currentY, { width: col1Width, align: "left" });
-      doc.text(row[1], startX + col1Width + padding, currentY, { width: col2Width, align: "left" });
+    pet.expenses.forEach((expense) => {
+      doc.rect(startX, currentY, col1Width, rowHeight).stroke();
+      doc.rect(startX + col1Width, currentY, col2Width, rowHeight).stroke();
+      doc.text(expense.item, startX + 10, currentY + 7, { width: col1Width - 20, align: "left" });
+      doc.text(`₹${expense.cost.toFixed(2)}`, startX + col1Width + 10, currentY + 7, { width: col2Width - 20, align: "right" });
+      currentY += rowHeight;
     });
 
-    // Add total expenses
-    const totalCost = pet.expenses.reduce((acc, expense) => acc + expense.cost, 0);
-    doc.moveDown(1); // Add space before total
-    doc.fontSize(12).text(`Total Cost: RS${totalCost.toFixed(2)}`, { align: "right" }).moveDown(0.5);
+    // Total cost row
+    doc.font("Helvetica-Bold");
+    doc.rect(startX, currentY, tableWidth, rowHeight).stroke();
+    doc.text("Total Cost", startX + 10, currentY + 7, { width: col1Width - 20, align: "center" });
+    doc.text(`₹${totalCost.toFixed(2)}`, startX + col1Width + 10, currentY + 7, { width: col2Width - 20, align: "right" });
+    doc.moveDown(2);
 
-    doc.end();
+    doc.font("Helvetica").fontSize(10);
+    doc.text("Please Scan and Complete Your Payment", startX + 10, doc.y + 7, { width: col1Width - 20, align: "left" });
+      // Generate QR Code for UPI payment
+      const qrCodeData = `upi://pay?pa=yasmin.hanif2417-3@okaxis&pn=Yasmin's Care Foundation&am=${totalCost}&cu=INR&tn=Pet Bill Payment`;
+      await new Promise((resolve, reject) => {
+          QRCode.toFile(qrCodePath, qrCodeData, (err) => {
+              if (err) {
+                  console.error("Error generating QR code:", err);
+                  return reject(err);
+              }
+              console.log("QR Code saved at:", qrCodePath);
+              resolve();
+          });
+      });
 
-    // Once the PDF is generated, set headers and send the file for download
-    res.setHeader("Content-Disposition", `attachment; filename="pet_bill_${petId}.pdf"`);
-    res.setHeader("Content-Type", "application/pdf");
-    res.sendFile(filePath);
+      // Add QR code to the PDF
+      doc.image(qrCodePath, { fit: [100, 100], align: 'right' }).moveDown();
+
+      // Finalize PDF
+      doc.end();
+
+      // Send the PDF file after it's written
+      writeStream.on('finish', () => {
+          res.setHeader('Content-Disposition', `attachment; filename="pet_bill_${petId}.pdf"`);
+          res.setHeader('Content-Type', 'application/pdf');
+          res.sendFile(filePath, (err) => {
+              if (err) {
+                  console.error('Error sending file:', err);
+                  res.status(500).send({ message: 'Failed to send PDF document' });
+              }
+
+              // Clean up temporary files
+              fs.unlinkSync(qrCodePath);
+              fs.unlinkSync(filePath);
+          });
+      });
+
+      writeStream.on('error', (err) => {
+          console.error('Error writing PDF file:', err);
+          res.status(500).send({ message: 'Error writing PDF file' });
+      });
+
   } catch (error) {
-    console.error(error);
-    res.status(500).send({ message: "Internal Server Error" });
+      console.error('Error generating PDF:', error);
+      res.status(500).send({ message: 'Error generating PDF' });
   }
 });
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
