@@ -2,17 +2,17 @@ const mongoose = require("mongoose");
 
 const PetSchema = new mongoose.Schema({
   name: String,
-  picture: {
-    data: {
-      type: Buffer,
-      default: null, // Set default to null
-    },
-    contentType: {
-      type: String,
-      default: null, // Set default to null
-    },
+  // picture: {
+  //   data: {
+  //     type: Buffer,
+  //     default: null, // Set default to null
+  //   },
+  //   contentType: {
+  //     type: String,
+  //     default: null, // Set default to null
+  //   },
 
-  },
+  // },
   owner: String,
   expenses: [
     {
@@ -20,6 +20,16 @@ const PetSchema = new mongoose.Schema({
       cost: Number,
     },
   ],
+  totalExpense: Number,
+  paid: {
+    type: Boolean,
+    required: true,
+    default: false,
+  },
+  partiallyPaid: {
+    amount: Number,
+    isPartiallyPaid: Boolean,
+  },
   dateOfAdmission: {
     type: Date,
     required: true,
@@ -41,7 +51,7 @@ const PetSchema = new mongoose.Schema({
   },
   vaccinationDate: Date,
   contact: String,
-  reasonOfAdmission:String
+  reasonOfAdmission: String,
 });
 
 const Pet = mongoose.model("Pet", PetSchema);
