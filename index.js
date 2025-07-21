@@ -86,6 +86,30 @@ app.post("/expenses", async (req, res) => {
 
 // GET /api/expenses - Get all expenses
 app.get("/expenses", async (req, res) => {
+
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+  
+    const startIndex = (page - 1) * limit;
+    const total = await Expense.countDocuments();
+    // const expenses = await Expense.find().sort({ date: -1 });
+    const expenses = await Expense.find().skip(startIndex).limit(limit).sort({date:-1});
+    res.json(
+      {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+        data: expenses
+    }
+    );
+  } catch (err) {
+    console.error("Error fetching expenses:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+app.get("/expenses/all", async (req, res) => {
   try {
     const expenses = await Expense.find().sort({ date: -1 });
     res.json(expenses);
